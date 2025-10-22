@@ -1,0 +1,18 @@
+[
+  {
+    "url": "https://git.libracore.io/libracore/erpnext",
+    "branch": "v2025"
+  },
+ {
+    "url": "https://git.libracore.io/libracore/erpnextswiss",
+    "branch": "v2025"
+  },
+  {
+    "url": "https://github.com/frappe/payments",
+    "branch": "version-15"
+  },
+  {
+    "url": "https://github.com/frappe/webshop",
+    "branch": "version-15"
+  }
+]

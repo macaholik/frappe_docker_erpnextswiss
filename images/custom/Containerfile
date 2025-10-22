@@ -25,6 +25,7 @@ RUN useradd -u 1000 -g 0 -d /home/frappe -ms /bin/bash frappe \
     nginx \
     gettext-base \
     file \
+    libgl1 \
     # weasyprint dependencies
     libpango-1.0-0 \
     libharfbuzz0b \
@@ -152,6 +153,8 @@ USER frappe
 
 COPY --from=builder --chown=frappe:0 /home/frappe/frappe-bench /home/frappe/frappe-bench
 RUN chmod -R g=u /home/frappe/frappe-bench
+
+RUN /home/frappe/frappe-bench/env/bin/pip3 install "paramiko<4"
 
 WORKDIR /home/frappe/frappe-bench
 
