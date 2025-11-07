@@ -5,7 +5,7 @@ services:
       configurator:
         condition: service_completed_successfully
         required: true
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
@@ -39,7 +39,7 @@ services:
       REDIS_CACHE: redis-cache:6379
       REDIS_QUEUE: redis-queue:6379
       SOCKETIO_PORT: "9000"
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
@@ -97,14 +97,14 @@ services:
       UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
       UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
       UPSTREAM_REAL_IP_RECURSIVE: "off"
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
     ports:
       - mode: ingress
         target: 8080
-        published: "8080"
+        published: "8081"
         protocol: tcp
     pull_policy: missing
     restart: unless-stopped
@@ -123,7 +123,7 @@ services:
       configurator:
         condition: service_completed_successfully
         required: true
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
@@ -144,7 +144,7 @@ services:
       configurator:
         condition: service_completed_successfully
         required: true
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
@@ -178,7 +178,7 @@ services:
       configurator:
         condition: service_completed_successfully
         required: true
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
@@ -197,7 +197,7 @@ services:
       configurator:
         condition: service_completed_successfully
         required: true
-    image: erpnext:2025
+    image: erpnext:v15
     networks:
       default: null
     platform: linux/amd64
@@ -222,13 +222,13 @@ x-backend-defaults:
   depends_on:
     configurator:
       condition: service_completed_successfully
-  image: erpnext:2025
+  image: erpnext:v15
   pull_policy: if_not_present
   restart: unless-stopped
   volumes:
     - sites:/home/frappe/frappe-bench/sites
 x-customizable-image:
-  image: erpnext:2025
+  image: erpnext:v15
   pull_policy: if_not_present
   restart: unless-stopped
 x-depends-on-configurator:
