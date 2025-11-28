@@ -1,0 +1,126 @@
+ARG PYTHON_VERSION=3.11
+ARG ALPINE_VERSION=3.22
+ARG NODE_VERSION=20.19.2
+ARG WKHTMLTOPDF_VERSION=0.12.6
+
+FROM node:${NODE_VERSION}-alpine AS node
+
+FROM surnet/alpine-wkhtmltopdf:${ALPINE_VERSION}.0-${WKHTMLTOPDF_VERSION}-full  AS alpine-wkhtmltopdf
+
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS base
+
+# Basic files
+COPY resources/mime.types /etc/mime.types
+#node, wkhtmltopdf and wkhtmltoimage from other stages
+COPY --from=node /usr/local /usr/local
+COPY --from=alpine-wkhtmltopdf /bin/wkhtmltopdf /bin/wkhtmltopdf
+COPY --from=alpine-wkhtmltopdf /bin/wkhtmltoimage /bin/wkhtmltoimage
+COPY --from=alpine-wkhtmltopdf /lib/libwkhtmltox* /bin/
+#dependencies
+COPY resources/wait-for-it.sh /usr/local/bin/wait-for-it
+COPY resources/nginx-template.conf /templates/nginx/frappe.conf.template
+COPY resources/nginx-entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
+COPY apps.json /opt/frappe/apps.json
+
+
+RUN adduser -D -h /home/frappe -s /bin/bash frappe \
+    && apk add --no-cache \
+        curl \
+        git \
+        nginx \
+        gettext \
+        mariadb-client \
+        file \
+        mesa-gl \
+        mesa \
+        pango \
+        harfbuzz \
+        restic \
+        gnupg \
+        less \
+        jq \
+        weasyprint \
+        wget \
+        gcc \
+        musl-dev \
+        python3-dev \
+        linux-headers \
+        yarn \
+        libffi \
+        lcms2 \
+        libldap \
+        libsasl \
+        tiff-dev \
+        libwebp \
+        rlwrap \
+        libbz2 \
+        make \
+        mupdf \
+        g++ \
+    && chmod +x /usr/local/bin/wait-for-it \
+    && rm -fr /etc/nginx/sites-enabled/default \
+    && pip3 install frappe-bench \
+    # Fixes for non-root nginx and logs to stdout
+    && sed -i '/user www-data/d' /etc/nginx/nginx.conf \
+    && ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log \
+    && touch /run/nginx.pid \
+    && chown -R frappe:frappe /etc/nginx/nginx.conf \
+    && chown -R frappe:frappe /var/log/nginx \
+    && chown -R frappe:frappe /var/lib/nginx \
+    && chown -R frappe:frappe /run/nginx.pid \
+    && chmod 755 /usr/local/bin/nginx-entrypoint.sh \
+    && chmod 644 /templates/nginx/frappe.conf.template
+
+FROM base AS builder
+
+ARG APPS_JSON_BASE64
+RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
+    mkdir /opt/frappe && echo "${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json; \
+  fi
+
+USER frappe
+
+ARG FRAPPE_BRANCH=
+ARG FRAPPE_PATH=
+RUN bench init \
+    --apps_path=/opt/frappe/apps.json \
+    --frappe-branch=${FRAPPE_BRANCH} \
+    --frappe-path=${FRAPPE_PATH} \
+    --no-procfile \
+    --no-backups \
+    --skip-redis-config-generation \
+    --verbose \
+    /home/frappe/frappe-bench && \
+  cd /home/frappe/frappe-bench && \
+  echo "{}" > sites/common_site_config.json && \
+  find apps -mindepth 1 -path "*/.git" | xargs rm -fr
+
+FROM base AS backend
+
+USER frappe
+
+COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench /home/frappe/frappe-bench
+
+#erpnextswiss hack because of wrong pyproject.toml
+RUN /home/frappe/frappe-bench/env/bin/pip3 install "paramiko<4"
+
+WORKDIR /home/frappe/frappe-bench
+
+VOLUME [ \
+  "/home/frappe/frappe-bench/sites", \
+  "/home/frappe/frappe-bench/sites/assets", \
+  "/home/frappe/frappe-bench/logs" \
+]
+
+CMD [ \
+  "/home/frappe/frappe-bench/env/bin/gunicorn", \
+  "--chdir=/home/frappe/frappe-bench/sites", \
+  "--bind=0.0.0.0:8000", \
+  "--threads=4", \
+  "--workers=2", \
+  "--worker-class=gthread", \
+  "--worker-tmp-dir=/dev/shm", \
+  "--timeout=120", \
+  "--preload", \
+  "frappe.app:application" \
+]
