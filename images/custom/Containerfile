@@ -87,13 +87,16 @@ RUN useradd -u 1000 -g 0 -d /home/frappe -ms /bin/bash frappe \
     && chgrp -R 0 /home/frappe /etc/nginx /var/log/nginx /var/lib/nginx /run \
     && chmod -R g=u /home/frappe /etc/nginx /var/log/nginx /var/lib/nginx /run \
     && chmod 755 /usr/local/bin/nginx-entrypoint.sh \
-    && chmod 644 /templates/nginx/frappe.conf.template
+    && chmod 644 /templates/nginx/frappe.conf.template \
+    && ln -sf /opt/yarn-v*/bin/yarn /usr/local/bin/yarn \
+    && ln -sf /opt/yarn-v*/bin/yarnpkg /usr/local/bin/yarnpkg \
+    && ln -s /usr/local/bin/node /usr/local/bin/nodejs
 
 
 FROM base AS builder
 
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+RUN apt update \
+    && DEBIAN_FRONTEND=noninteractive apt install --no-install-recommends -y \
     # For frappe framework
     wget \
     #for building arm64 binaries
@@ -144,6 +147,11 @@ RUN --mount=type=secret,id=apps_json,target=/opt/frappe/apps.json,uid=1000,gid=0
     --verbose \
     /home/frappe/frappe-bench && \
   cd /home/frappe/frappe-bench && \
+  if [ -n "${ERPNEXTSWISS_URL}" ]; then \
+    git clone ${ERPNEXTSWISS_URL} --branch ${ERPNEXTSWISS_BRANCH} --depth 1 apps/erpnextswiss && \
+    ./env/bin/pip install --no-deps -e apps/erpnextswiss && \
+    ./env/bin/pip install "paramiko<4" bs4 "factur-x>=2.3" unidecode opencv-python pymupdf fintech pysftp icalendar lxml; \
+  fi && \
   echo "{}" > sites/common_site_config.json && \
   find apps -mindepth 1 -path "*/.git" | xargs rm -fr
 
@@ -153,8 +161,6 @@ USER frappe
 
 COPY --from=builder --chown=frappe:0 /home/frappe/frappe-bench /home/frappe/frappe-bench
 RUN chmod -R g=u /home/frappe/frappe-bench
-
-RUN /home/frappe/frappe-bench/env/bin/pip3 install "paramiko<4"
 
 WORKDIR /home/frappe/frappe-bench
 
