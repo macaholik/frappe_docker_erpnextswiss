@@ -1,5 +1,4 @@
 import { defineConfig, UserConfig } from "vitepress";
-import { withMermaid } from "vitepress-mermaid-viewer";
 import { withSidebar } from "vitepress-sidebar";
 
 // https://vitepress.dev/reference/site-config
@@ -8,8 +7,17 @@ const vitePressOptions: UserConfig = {
   description: "Frappe in a Container",
   base: "/frappe_docker/",
   head: [["link", { rel: "icon", href: "/frappe_docker/favicon.png" }]],
-  mermaid: {
-    securityLevel: "strict",
+  markdown: {
+    config(md) {
+      const fence = md.renderer.rules.fence!;
+      md.renderer.rules.fence = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        if (["mermaid", "mmd"].includes(token.info.trim())) {
+          return `<ClientOnly><PeleDiagram source="${encodeURIComponent(token.content)}" /></ClientOnly>`;
+        }
+        return fence(tokens, index, options, env, self);
+      };
+    },
   },
   themeConfig: {
     logo: "/frappe-docker.png",
@@ -19,6 +27,9 @@ const vitePressOptions: UserConfig = {
     socialLinks: [
       { icon: "github", link: "https://github.com/frappe/frappe_docker/" },
     ],
+    search: {
+      provider: "local",
+    },
   },
 };
 
@@ -29,6 +40,6 @@ const vitePressSidebarOptions = {
   useFolderLinkFromIndexFile: true,
 };
 
-export default withMermaid(
-  defineConfig(withSidebar(vitePressOptions, vitePressSidebarOptions)),
+export default defineConfig(
+  withSidebar(vitePressOptions, vitePressSidebarOptions),
 );
